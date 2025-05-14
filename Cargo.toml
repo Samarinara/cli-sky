@@ -8,7 +8,7 @@ description = "A CLI AT protocol client"
 readme = "README.md"
 homepage = "https://github.com/Samarinara/cli-sky"
 repository = "https://github.com/Samarinara/cli-sky"
-keywords = ["cli", "search", "demo", "bsky", "bluesky", "AT Protocol", "ATmosphere", "ATrium"]
+keywords = ["cli", "bsky", "bluesky", "AT Protocol", "ATrium"]
 categories = ["command-line-utilities"]
 
 [dependencies]
