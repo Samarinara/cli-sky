@@ -177,15 +177,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c8214115b7bf84099f1309324e63141d4c5d7cc26862f97a0a857dbefe165bd"
 
 [[package]]
-name = "bsky-cli"
-version = "0.1.0"
-dependencies = [
- "atrium-api",
- "bsky-sdk",
- "tokio",
-]
-
-[[package]]
 name = "bsky-sdk"
 version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -258,6 +249,15 @@ dependencies = [
  "serde",
  "serde_bytes",
  "unsigned-varint",
+]
+
+[[package]]
+name = "cli-sky"
+version = "0.1.0"
+dependencies = [
+ "atrium-api",
+ "bsky-sdk",
+ "tokio",
 ]
 
 [[package]]

@@ -1,7 +1,15 @@
 [package]
-name = "bsky-cli"
+name = "cli-sky"
 version = "0.1.0"
 edition = "2024"
+authors = ["Sam Katevatis <samkatevatis@gmail.com>"]
+license = "MIT OR Apache-2.0"
+description = "A CLI AT protocol client"
+readme = "README.md"
+homepage = "https://github.com/Samarinara/cli-sky"
+repository = "https://github.com/Samarinara/cli-sky"
+keywords = ["cli", "search", "demo", "bsky", "bluesky", "AT Protocol", "ATmosphere", "ATrium"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 bsky-sdk = "0.1.19"
