@@ -2,6 +2,11 @@
 
 This is a very limited AT protocol client I made to learn how to use the bsky-sdk crate. 
 
+##INSTALLATION
+Available on Crates.io 
+https://crates.io/crates/cli-sky
+AUR version available soon
+
 ##FEATURES
 You can log in and make a text post
 
