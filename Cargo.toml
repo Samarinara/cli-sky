@@ -16,3 +16,5 @@ bsky-sdk = "0.1.19"
 atrium-api = "0.25.3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 rpassword = "7.4.0"
+serde_json = "1.0.140"
+quit = "2.0.0"

@@ -2,6 +2,9 @@
 
 This is a very limited AT protocol client I made to learn how to use the bsky-sdk crate. 
 
+LOGIN INFO IS STORED IN PLAIN TEXT THIS WILL BE FIXED
+DELETE CONFIG.JSON IF YOU DON'T WANT THE LOGIN SAVED
+
 ##INSTALLATION
 Available on Crates.io 
 https://crates.io/crates/cli-sky

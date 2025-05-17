@@ -3,11 +3,17 @@ use std::io;
 use rpassword::read_password;
 use std::io::Write;
 use std::io::Cursor;
+use std::path::Path;
+use quit;
+use std::process;
 
 use bsky_sdk::BskyAgent;
 use atrium_api::types::string::Datetime;
 use bsky_sdk::moderation::decision::DecisionContext;
 use atrium_api::app::bsky::feed::get_timeline::ParametersData;
+use bsky_sdk::agent::config::{Config, FileStore};
+use atrium_api::app::bsky::feed::post::RecordData as PostRecordData;
+use serde_json::from_value;
 
 struct Post{
     created_at: String,
@@ -41,6 +47,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("");
     println!("");
 
+    if Path::new("config.json").exists() {
+        println!("config.json exists!");
+        ask_to_login().await?;
+    } else {
+        println!("config.json does not exist.");
+    }
     login().await?;
     Ok(())
 }
@@ -64,9 +76,10 @@ async fn login() -> Result<(), Box<dyn std::error::Error>> {
        let pwd = rpassword::prompt_password("Password: ").unwrap();
        println!("{pwd}");
 
+        let agent = create_agent(uname.trim().to_string(), pwd.to_string()).await?;
 
 
-        match start_session(uname.trim().to_string(), pwd.to_string()).await {
+        match start_session(agent).await {
             Ok(_) => {
                 // Session started successfully
                 return Ok(());
@@ -82,9 +95,39 @@ async fn login() -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
-async fn start_session(uname: String, pwd: String) -> Result<(), Box<dyn std::error::Error>> {
+async fn ask_to_login() -> Result<(), Box<dyn std::error::Error>> {
+    let agent = BskyAgent::builder()
+    .config(Config::load(&FileStore::new("config.json")).await?)
+    .build()
+    .await?;
+
+    match start_session(agent).await {
+        Ok(_) => {
+            // Session started successfully
+            return Ok(());
+        }
+        Err(e) => {
+            println!("\nLogin failed. Please enter new details.");
+            println!("{e}");
+            login().await?;
+            Ok(())
+        }
+    }
+}
+
+async fn create_agent(uname: String, pwd: String) -> Result<BskyAgent, Box<dyn std::error::Error>> {
     let agent = BskyAgent::builder().build().await?;
     let session = agent.login(&uname,&pwd).await?;
+    println!("Logged in! DID = {}", session.did.to_string());
+    return Ok(agent);
+}
+
+async fn start_session(agent: BskyAgent) -> Result<(), Box<dyn std::error::Error>> {
+    agent.to_config()
+         .await
+         .save(&FileStore::new("config.json"))
+         .await?;
+    println!("Session saved to config.json");
 
     match menu(agent).await {
         Ok(_) => {
@@ -157,21 +200,51 @@ async fn make_post(agent: BskyAgent) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn following_feed(agent: BskyAgent)-> Result<(), Box<dyn std::error::Error>>{
-    let mut cursor = None;
-    loop {
-        // returns a `GetTimelineResponse` whose `.feed: Vec<FeedViewPost>` has
-        // `post.record` already deserialized into `app_bsky_feed_defs::FeedViewPostRecord`
-        let resp = agent.get_timeline(cursor.clone(), Some(50)).await?;
-        for item in resp.feed {
-            // here `item.post.record` is a `FeedViewPostRecord` struct
-            println!("— {}", item.post.record.text);
-        }
-        if let Some(next) = resp.cursor {
-            cursor = Some(next);
-        } else {
-            break;
+
+    // Fetch the first page of timeline (default cursor, default limit)
+    let output = agent
+        .api
+        .app
+        .bsky
+        .feed
+        .get_timeline(
+            ParametersData {
+                cursor: None,
+                limit: None,
+                algorithm: Some("reverse-chronological".to_string()),
+            }
+            .into(),
+        )
+        .await?;
+
+    // Iterate over posts
+    for feed_post in &output.feed {
+        let author = &feed_post.post.author;
+
+        // Try deserializing the record field into a known post structure
+        let record_value = serde_json::to_value::<atrium_api::types::Unknown>(feed_post.post.record.clone())?;
+        let maybe_post: Result<PostRecordData, _> =
+            from_value(record_value);
+
+        match maybe_post {
+            Ok(post_record) => {
+                println!(
+                    "{} (@{}): {}",
+                    author.display_name.clone().unwrap_or_default(),
+                    author.handle.to_string(),
+                    post_record.text
+                );
+            }
+            Err(e) => {
+                eprintln!(
+                    "Failed to parse post record from {} (@{}): {}",
+                    author.display_name.clone().unwrap_or_default(),
+                    author.handle.to_string(),
+                    e
+                );
+            }
         }
     }
-
+    process::exit(0);
     Ok(())
 }
