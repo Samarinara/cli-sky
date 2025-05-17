@@ -15,3 +15,4 @@ categories = ["command-line-utilities"]
 bsky-sdk = "0.1.19"
 atrium-api = "0.25.3"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+rpassword = "7.4.0"
