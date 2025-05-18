@@ -262,5 +262,4 @@ async fn following_feed(agent: BskyAgent)-> Result<(), Box<dyn std::error::Error
         }
     }
     process::exit(0);
-    Ok(())
 }
