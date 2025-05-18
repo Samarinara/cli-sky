@@ -1,4 +1,3 @@
-extern crate rpassword;
 use std::io;
 use rpassword::read_password;
 use std::io::Write;
@@ -6,6 +5,9 @@ use std::io::Cursor;
 use std::path::Path;
 use quit;
 use std::process;
+use std::fs;
+
+use keyring::Result as KeyResult;
 
 use bsky_sdk::BskyAgent;
 use atrium_api::types::string::Datetime;
@@ -32,6 +34,7 @@ impl Post {
 
     }
 }
+
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -145,6 +148,19 @@ async fn save_session(agent: &BskyAgent) -> Result<(), Box<dyn std::error::Error
     .save(&FileStore::new("config.json"))
     .await?;
     println!("Session saved to config.json");
+
+    //deserialize the json
+    let config = fs::read_to_string("config.json")?;
+
+    //create an entry
+    let service = "cli_sky";
+    let username = "user";
+    let entry = keyring::Entry::new(service, username)?;
+    entry.set_password(&config)?;
+
+    //delete the config.json file
+    fs::remove_file("config.json")?;
+
     Ok(())
 }
 
