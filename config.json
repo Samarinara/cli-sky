@@ -1,0 +1,41 @@
+{
+  "endpoint": "https://splitgill.us-east.host.bsky.network",
+  "session": {
+    "accessJwt": "eyJ0eXAiOiJhdCtqd3QiLCJhbGciOiJFUzI1NksifQ.eyJzY29wZSI6ImNvbS5hdHByb3RvLmFjY2VzcyIsInN1YiI6ImRpZDpwbGM6NG9vbmRsYm1wZ3Iyb3o2amRhN25oemxnIiwiaWF0IjoxNzQ3NTI0NjE2LCJleHAiOjE3NDc1MzE4MTYsImF1ZCI6ImRpZDp3ZWI6c3BsaXRnaWxsLnVzLWVhc3QuaG9zdC5ic2t5Lm5ldHdvcmsifQ.meHXRW5dvqQ1dk_7t31ds1EnCsWXPBJKpFwAmqKuI_mi0nMS0PsDXlXcCqWGRZ5V6_hyaW-8neNj7CAn3LSEOQ",
+    "active": true,
+    "did": "did:plc:4oondlbmpgr2oz6jda7nhzlg",
+    "didDoc": {
+      "@context": [
+        "https://www.w3.org/ns/did/v1",
+        "https://w3id.org/security/multikey/v1",
+        "https://w3id.org/security/suites/secp256k1-2019/v1"
+      ],
+      "alsoKnownAs": [
+        "at://samarinara.bsky.social"
+      ],
+      "id": "did:plc:4oondlbmpgr2oz6jda7nhzlg",
+      "service": [
+        {
+          "id": "#atproto_pds",
+          "serviceEndpoint": "https://splitgill.us-east.host.bsky.network",
+          "type": "AtprotoPersonalDataServer"
+        }
+      ],
+      "verificationMethod": [
+        {
+          "controller": "did:plc:4oondlbmpgr2oz6jda7nhzlg",
+          "id": "did:plc:4oondlbmpgr2oz6jda7nhzlg#atproto",
+          "publicKeyMultibase": "zQ3shhA2GbUZSmxRXy6Er79GAeYvuFtDz5SyxqUCmkMZvuTEE",
+          "type": "Multikey"
+        }
+      ]
+    },
+    "email": "samkatevatis@gmail.com",
+    "emailAuthFactor": false,
+    "emailConfirmed": true,
+    "handle": "samarinara.bsky.social",
+    "refreshJwt": "eyJ0eXAiOiJyZWZyZXNoK2p3dCIsImFsZyI6IkVTMjU2SyJ9.eyJzY29wZSI6ImNvbS5hdHByb3RvLnJlZnJlc2giLCJzdWIiOiJkaWQ6cGxjOjRvb25kbGJtcGdyMm96NmpkYTduaHpsZyIsImF1ZCI6ImRpZDp3ZWI6YnNreS5zb2NpYWwiLCJqdGkiOiIrWCtjbW1iU2p2WVA1LzQ5RjFCMlhrQ2llcnduclduNUVveEZ6RVlpTVB3IiwiaWF0IjoxNzQ3NTI0NjE2LCJleHAiOjE3NTUzMDA2MTZ9.GpERTtLwiuwZX5C-LuCxtKaWsZkAuatVnOWaw9CZCndO0fI-G6YPXdtMO0hXXYNhi18kSZr5-hpJ8MUCW8H6Nw"
+  },
+  "labelers_header": null,
+  "proxy_header": null
+}

@@ -123,11 +123,8 @@ async fn create_agent(uname: String, pwd: String) -> Result<BskyAgent, Box<dyn s
 }
 
 async fn start_session(agent: BskyAgent) -> Result<(), Box<dyn std::error::Error>> {
-    agent.to_config()
-         .await
-         .save(&FileStore::new("config.json"))
-         .await?;
-    println!("Session saved to config.json");
+    save_session(&agent).await?;
+
 
     match menu(agent).await {
         Ok(_) => {
@@ -140,6 +137,15 @@ async fn start_session(agent: BskyAgent) -> Result<(), Box<dyn std::error::Error
         }
     }
 
+}
+
+async fn save_session(agent: &BskyAgent) -> Result<(), Box<dyn std::error::Error>> {
+    agent.to_config()
+    .await
+    .save(&FileStore::new("config.json"))
+    .await?;
+    println!("Session saved to config.json");
+    Ok(())
 }
 
 async fn menu(agent: BskyAgent) -> Result<(), Box<dyn std::error::Error>> {
@@ -228,12 +234,22 @@ async fn following_feed(agent: BskyAgent)-> Result<(), Box<dyn std::error::Error
 
         match maybe_post {
             Ok(post_record) => {
+                println!("{}[2J", 27 as char);
                 println!(
-                    "{} (@{}): {}",
+                    "{} \n(@{})\n\n {}",
                     author.display_name.clone().unwrap_or_default(),
                     author.handle.to_string(),
                     post_record.text
                 );
+                println!("\nType 'exit' to quit.\n");
+
+
+                let mut input = String::new();
+                std::io::stdin().read_line( &mut input).expect("Failed to read");
+                match input.trim() {
+                    "exit" => {process::exit(0)}
+                    _ => {}
+                }
             }
             Err(e) => {
                 eprintln!(
