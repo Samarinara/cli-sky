@@ -1,4 +1,6 @@
+use std::fs::File;
 use std::io;
+use bsky_sdk::agent::config;
 use rpassword::read_password;
 use std::io::Write;
 use std::io::Cursor;
@@ -6,6 +8,7 @@ use std::path::Path;
 use quit;
 use std::process;
 use std::fs;
+
 
 use keyring::Result as KeyResult;
 
@@ -35,9 +38,7 @@ impl Post {
     }
 }
 
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn print_logo() {
     println!("{}[2J", 27 as char);
     println!("  /$$$$$$  /$$       /$$$$$$        /$$$$$$  /$$   /$$ /$$     /$$");
     println!(" /$$__  $$| $$      |_  $$_/       /$$__  $$| $$  /$$/|  $$   /$$/");
@@ -49,14 +50,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!(" |______/ |________/|______/       |______/ |__/  |__/    |__/   ");
     println!("");
     println!("");
+}
 
-    if Path::new("config.json").exists() {
-        println!("config.json exists!");
-        ask_to_login().await?;
-    } else {
-        println!("config.json does not exist.");
-    }
-    login().await?;
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+
+    print_logo().await;
+
+    ask_to_login().await?;
     Ok(())
 }
 
@@ -99,6 +100,17 @@ async fn login() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn ask_to_login() -> Result<(), Box<dyn std::error::Error>> {
+    let service = "cli_sky";
+    let username = "user";
+    let entry = keyring::Entry::new(service, username)?;
+
+    let secret = entry.get_password()?;
+
+    println!("Got secret: {secret}");
+
+    let mut file = File::create("config.json")?;
+    file.write_all(secret.as_bytes())?;
+
     let agent = BskyAgent::builder()
     .config(Config::load(&FileStore::new("config.json")).await?)
     .build()
@@ -164,41 +176,49 @@ async fn save_session(agent: &BskyAgent) -> Result<(), Box<dyn std::error::Error
     Ok(())
 }
 
-async fn menu(agent: BskyAgent) -> Result<(), Box<dyn std::error::Error>> {
-    //    print!("{}[2J", 27 as char);
+fn menu(agent: BskyAgent) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), Box<dyn std::error::Error>>> + Send>> {
+    Box::pin(async move {
+        print!("{}[2J", 27 as char);
+        print_logo().await;
+        println!("");
+        println!("What would you like to do?");
+        println!("0: Exit");
+        println!("1: Text Post");
+        println!("2: Following Feed");
+        println!("");
 
-    println!("What would you like to do?");
-    println!("1: Text Post");
-    println!("2: Following Feed");
-    println!("");
+        let mut input = String::new();
 
-    let mut input = String::new();
+        loop {
+            std::io::stdin().read_line(&mut input).expect("Failed to read menu input");
 
-    loop{
-        std::io::stdin().read_line(&mut input).expect("Failed to read menu input");
+            match input.trim().parse::<i32>() {
+                Ok(0) => {
+                    println!("Exiting...");
+                    process::exit(0);
+                }
+                Ok(1) => {
+                    println!("writing post");
+                    make_post(agent.clone()).await?;  // Assuming agent is cloneable
+                    break;
+                }
+                Ok(2) => {
+                    println!("following feed");
+                    following_feed(agent.clone()).await?;
+                    break;
+                }
+                _ => {
+                    input.clear();
+                    println!("Invalid input");
+                    continue;
+                }
+            };
+        }
 
-        match input.trim().parse::<i32>(){
-            Ok(1) => {
-                println!("writing post");
-                make_post(agent).await?;
-                break;
-            }
-            Ok(2) => {
-                println!("following feed");
-                following_feed(agent).await?;
-                break;
-            }
-
-            _ => {
-                input.clear(); // Clear input buffer for next read
-                println!("Invalid input");
-                continue;
-            }
-        };
-    }
-
-    Ok(())
+        Ok(())
+    })
 }
+
 
 async fn make_post(agent: BskyAgent) -> Result<(), Box<dyn std::error::Error>> {
     let mut content = String::new();
@@ -218,13 +238,16 @@ async fn make_post(agent: BskyAgent) -> Result<(), Box<dyn std::error::Error>> {
             text: content,
         })
         .await?;
+
+    println!("Post sent to the Atmosphere!!!");
+    menu(agent).await?;
     Ok(())
 }
 
 async fn following_feed(agent: BskyAgent)-> Result<(), Box<dyn std::error::Error>>{
 
     // Fetch the first page of timeline (default cursor, default limit)
-    let output = agent
+    let output = agent.clone()
         .api
         .app
         .bsky
@@ -264,6 +287,7 @@ async fn following_feed(agent: BskyAgent)-> Result<(), Box<dyn std::error::Error
                 std::io::stdin().read_line( &mut input).expect("Failed to read");
                 match input.trim() {
                     "exit" => {process::exit(0)}
+                    "menu" => {menu(agent.clone()).await?},
                     _ => {}
                 }
             }
