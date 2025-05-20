@@ -1,42 +1,19 @@
 use std::fs::File;
 use std::io;
-use bsky_sdk::agent::config;
-use rpassword::read_password;
 use std::io::Write;
-use std::io::Cursor;
-use std::path::Path;
-use quit;
 use std::process;
 use std::fs;
 
 
-use keyring::Result as KeyResult;
+use keyring::error::Error;
 
 use bsky_sdk::BskyAgent;
 use atrium_api::types::string::Datetime;
-use bsky_sdk::moderation::decision::DecisionContext;
 use atrium_api::app::bsky::feed::get_timeline::ParametersData;
 use bsky_sdk::agent::config::{Config, FileStore};
 use atrium_api::app::bsky::feed::post::RecordData as PostRecordData;
 use serde_json::from_value;
 
-struct Post{
-    created_at: String,
-    embed: String,
-    entities: String,
-    facets: String,
-    labels: String,
-    langs: String,
-    reply: String,
-    tags: String,
-    text: String,
-}
-impl Post {
-    fn print_post(){
-        println!("{}[2J", 27 as char);
-
-    }
-}
 
 async fn print_logo() {
     println!("{}[2J", 27 as char);
@@ -104,12 +81,23 @@ async fn ask_to_login() -> Result<(), Box<dyn std::error::Error>> {
     let username = "user";
     let entry = keyring::Entry::new(service, username)?;
 
-    let secret = entry.get_password()?;
+    let mut pwd = String::new();
 
-    println!("Got secret: {secret}");
+
+    match entry.get_password() {
+        Ok(secret) => {pwd = secret},
+        Err(Error::NoEntry) => {
+            login().await?;
+        }
+        Err(e) => {
+            eprintln!("Failed to get password: {}", e);
+        }
+    }
+
+    println!("Got secret: {pwd}");
 
     let mut file = File::create("config.json")?;
-    file.write_all(secret.as_bytes())?;
+    file.write_all(pwd.as_bytes())?;
 
     let agent = BskyAgent::builder()
     .config(Config::load(&FileStore::new("config.json")).await?)
