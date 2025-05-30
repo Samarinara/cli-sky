@@ -1,6 +1,6 @@
 [package]
 name = "cli-sky"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["Sam Katevatis <samkatevatis@gmail.com>"]
 license = "Apache-2.0"
