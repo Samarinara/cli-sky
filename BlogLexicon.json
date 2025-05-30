@@ -1,0 +1,18 @@
+{
+  "lexicon": 1,
+  "id": "com.macroblog.blog.post",
+  "defs": {
+    "main": {
+      "type": "record",
+      "record": {
+        "type": "object",
+        "required": ["text", "title"],
+        "properties": {
+          "title": {"type": "string", "maxLength": 120},
+          "text": {"type": "string", "maxLength": 20000},
+          "tags": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    }
+  }
+}

@@ -263,9 +263,11 @@ version = "0.2.0"
 dependencies = [
  "atrium-api",
  "bsky-sdk",
+ "chrono",
  "keyring",
  "quit",
  "rpassword",
+ "serde",
  "serde_json",
  "tokio",
 ]

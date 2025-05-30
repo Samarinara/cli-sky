@@ -4,7 +4,8 @@ use std::io::Write;
 use std::process;
 use std::fs;
 
-
+/* use com::macroblog::blog::post::BlogPost;
+ */
 use keyring::error::Error;
 
 use bsky_sdk::BskyAgent;
@@ -13,6 +14,17 @@ use atrium_api::app::bsky::feed::get_timeline::ParametersData;
 use bsky_sdk::agent::config::{Config, FileStore};
 use atrium_api::app::bsky::feed::post::RecordData as PostRecordData;
 use serde_json::from_value;
+use serde_json::json;
+use serde::{Deserialize, Serialize};
+
+/* #[derive(serde::Serialize, atrium_codegen::Record)]
+#[atrium(collection = "com.macroblog.blog.post")]
+pub struct BlogPost {
+    title: String,
+    text: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tags: Option<Vec<String>>,
+} */
 
 
 async fn print_logo() {
@@ -172,6 +184,7 @@ fn menu(agent: BskyAgent) -> std::pin::Pin<Box<dyn std::future::Future<Output = 
         println!("What would you like to do?");
         println!("0: Exit");
         println!("1: Text Post");
+     //   println!("2: Blog Post");
         println!("2: Following Feed");
         println!("");
 
@@ -193,6 +206,11 @@ fn menu(agent: BskyAgent) -> std::pin::Pin<Box<dyn std::future::Future<Output = 
                 Ok(2) => {
                     println!("following feed");
                     following_feed(agent.clone()).await?;
+                    break;
+                }
+                Ok(3) => {
+                    println!("blog post");
+                    write_blog(agent.clone()).await?;
                     break;
                 }
                 _ => {
@@ -291,3 +309,41 @@ async fn following_feed(agent: BskyAgent)-> Result<(), Box<dyn std::error::Error
     }
     process::exit(0);
 }
+
+async fn write_blog(agent: BskyAgent) -> Result<(), Box<dyn std::error::Error>> {
+    println!("hello");
+    Ok(())
+}
+
+/* 
+pub async fn post_blog(
+    agent: &BskyAgent,
+    title: &str,
+    content: &str,
+    author: &str,
+    tags: Option<Vec<String>>,
+    updated_at: Option<&str>
+
+) -> Result<(), Box<dyn std::error::Error>> {
+
+    let now = chrono::Utc::now().to_rfc3339();
+    let mut record = json!({
+        "title": title,
+        "content": content,
+        "author": author,
+        "createdAt": now,
+    });
+    if let Some(updated) = updated_at {
+        record["updatedAt"] = json!(updated);
+    }
+    if let Some(tags_vec) = tags {
+        record["tags"] = json!(tags_vec);
+    }
+
+    let response = agent.create_record(record).await?;
+
+    println!("Posted record: {:?}", response);
+    Ok(())
+} */
+
+
