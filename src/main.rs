@@ -4,7 +4,7 @@ use std::process;
 use std::fs;
 use std::io::{self, BufRead};
 
-use bsky_cli::com;
+use cli_sky::com;
 use keyring::error::Error;
 use bsky_sdk::BskyAgent;
 use atrium_api::types::string::Datetime;
@@ -13,8 +13,8 @@ use bsky_sdk::agent::config::{Config, FileStore};
 use atrium_api::app::bsky::feed::post::RecordData as PostRecordData;
 use serde_json::from_value;
 use serde::{Deserialize, Serialize};
-use bsky_cli::lexicon::record::KnownRecord;
-use bsky_cli::lexicon::wrapper::AtpServiceClientWrapper;
+use cli_sky::lexicon::record::KnownRecord;
+use cli_sky::lexicon::wrapper::AtpServiceClientWrapper;
 use atrium_api::com::atproto::repo::create_record::InputData;
 
 async fn print_logo() {

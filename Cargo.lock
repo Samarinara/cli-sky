@@ -390,23 +390,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bsky-cli"
-version = "0.4.0"
-dependencies = [
- "atrium-api",
- "atrium-xrpc",
- "bsky-sdk",
- "chrono",
- "keyring",
- "quit",
- "rpassword",
- "serde",
- "serde_json",
- "serde_with",
- "tokio",
-]
-
-[[package]]
 name = "bsky-sdk"
 version = "0.1.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -504,6 +487,23 @@ checksum = "773f3b9af64447d2ce9850330c473515014aa235e6a783b02db81ff39e4a3dad"
 dependencies = [
  "crypto-common",
  "inout",
+]
+
+[[package]]
+name = "cli-sky"
+version = "0.4.0"
+dependencies = [
+ "atrium-api",
+ "atrium-xrpc",
+ "bsky-sdk",
+ "chrono",
+ "keyring",
+ "quit",
+ "rpassword",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "tokio",
 ]
 
 [[package]]
