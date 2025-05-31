@@ -1,7 +1,7 @@
 [package]
-name = "cli-sky"
-version = "0.3.2"
-edition = "2024"
+name = "bsky-cli"
+version = "0.1.0"
+edition = "2021"
 authors = ["Sam Katevatis <samkatevatis@gmail.com>"]
 license = "Apache-2.0"
 description = "A CLI AT protocol client"
@@ -12,12 +12,14 @@ keywords = ["cli", "bsky", "bluesky", "atprotocol", "ATrium"]
 categories = ["command-line-utilities"]
 
 [dependencies]
-bsky-sdk = "0.1.19"
-atrium-api = "0.25.3"
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-rpassword = "7.4.0"
-serde_json = "1.0.140"
-serde = "1.0.219"
-chrono = "0.4.41"
+bsky-sdk = "0.1.0"
+atrium-api = "0.25.4"
+atrium-xrpc = "0.12.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.0", features = ["full"] }
+keyring = "2.0"
+rpassword = "7.2"
+chrono = "0.4"
 quit = "2.0.0"
-keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
+serde_with = "3.12.0"

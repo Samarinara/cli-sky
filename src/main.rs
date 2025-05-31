@@ -1,31 +1,21 @@
 use std::fs::File;
-use std::io;
 use std::io::Write;
 use std::process;
 use std::fs;
+use std::io::{self, BufRead};
 
-/* use com::macroblog::blog::post::BlogPost;
- */
+use bsky_cli::com;
 use keyring::error::Error;
-
 use bsky_sdk::BskyAgent;
 use atrium_api::types::string::Datetime;
 use atrium_api::app::bsky::feed::get_timeline::ParametersData;
 use bsky_sdk::agent::config::{Config, FileStore};
 use atrium_api::app::bsky::feed::post::RecordData as PostRecordData;
 use serde_json::from_value;
-use serde_json::json;
 use serde::{Deserialize, Serialize};
-
-/* #[derive(serde::Serialize, atrium_codegen::Record)]
-#[atrium(collection = "com.macroblog.blog.post")]
-pub struct BlogPost {
-    title: String,
-    text: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    tags: Option<Vec<String>>,
-} */
-
+use bsky_cli::lexicon::record::KnownRecord;
+use bsky_cli::lexicon::wrapper::AtpServiceClientWrapper;
+use atrium_api::com::atproto::repo::create_record::InputData;
 
 async fn print_logo() {
     println!("{}[2J", 27 as char);
@@ -39,6 +29,13 @@ async fn print_logo() {
     println!(" |______/ |________/|______/       |______/ |__/  |__/    |__/   ");
     println!("");
     println!("");
+}
+
+#[derive(Serialize, Deserialize)]
+struct BlogPost {
+    title: String,
+    text: String,
+    tags: Option<Vec<String>>,
 }
 
 #[tokio::main]
@@ -184,8 +181,8 @@ fn menu(agent: BskyAgent) -> std::pin::Pin<Box<dyn std::future::Future<Output = 
         println!("What would you like to do?");
         println!("0: Exit");
         println!("1: Text Post");
-     //   println!("2: Blog Post");
         println!("2: Following Feed");
+        println!("3: Blog Post");
         println!("");
 
         let mut input = String::new();
@@ -311,39 +308,62 @@ async fn following_feed(agent: BskyAgent)-> Result<(), Box<dyn std::error::Error
 }
 
 async fn write_blog(agent: BskyAgent) -> Result<(), Box<dyn std::error::Error>> {
-    println!("hello");
-    Ok(())
-}
+    println!("Enter blog title:");
+    let mut title = String::new();
+    io::stdin().read_line(&mut title)?;
+    let title = title.trim().to_string();
+    
+    println!("Paste blog content in markdown (type END in all caps on a new line to finish):");
+    let stdin = io::stdin();
+    let mut content = String::new();
+    
+    for line in stdin.lock().lines() {
+        let line = line?;
+        if line.trim() == "END" { break; }
+        content.push_str(&line);
+        content.push('\n');
+    }
+    let content = content.trim().to_string();
+    
+    println!("Enter tags (comma-separated, or press Enter for none):");
+    let mut tags_input = String::new();
+    io::stdin().read_line(&mut tags_input)?;
+    let tags: Option<Vec<String>> = if tags_input.trim().is_empty() {
+        None
+    } else {
+        Some(tags_input.trim().split(',').map(|s| s.trim().to_string()).collect())
+    };
 
-/* 
-pub async fn post_blog(
-    agent: &BskyAgent,
-    title: &str,
-    content: &str,
-    author: &str,
-    tags: Option<Vec<String>>,
-    updated_at: Option<&str>
+    let blog_record = BlogPost {
+        title: title.clone(),
+        text: content.clone(),
+        tags: tags.clone(),
+    };
 
-) -> Result<(), Box<dyn std::error::Error>> {
-
-    let now = chrono::Utc::now().to_rfc3339();
-    let mut record = json!({
+    let record_json = serde_json::json!({
+        "$type": "com.macroblog.blog.post",
         "title": title,
-        "content": content,
-        "author": author,
-        "createdAt": now,
+        "text": content,
+        "tags": tags,
     });
-    if let Some(updated) = updated_at {
-        record["updatedAt"] = json!(updated);
-    }
-    if let Some(tags_vec) = tags {
-        record["tags"] = json!(tags_vec);
-    }
 
-    let response = agent.create_record(record).await?;
+    let session_info = agent.api.com.atproto.server.get_session().await?;
+    let did = session_info.did.clone(); // or however you get the current user's DID
 
-    println!("Posted record: {:?}", response);
+    let record_unknown: atrium_api::types::Unknown = serde_json::from_value(record_json)?;
+    let input = InputData {
+        collection: "com.macroblog.blog.post".parse()?, // Your lexicon's NSID
+        repo: did.into(),
+        rkey: None, // Let the server pick a key
+        record: record_unknown,
+        swap_commit: None, 
+        validate: None,
+    };
+    agent.api.com.atproto.repo.create_record(input.into()).await?;
+
+    println!("Blog post created successfully!");
+    menu(agent).await?;
     Ok(())
-} */
+} 
 
 

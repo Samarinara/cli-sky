@@ -3,13 +3,13 @@
 ///Client struct for the ATP service.
 pub struct AtpServiceClient<T>
 where
-    T: atrium_xrpc::XrpcClient + Send + Sync,
+    T: atrium_xrpc::XrpcClient + Send + Sync + 'static,
 {
     pub service: Service<T>,
 }
 impl<T> AtpServiceClient<T>
 where
-    T: atrium_xrpc::XrpcClient + Send + Sync,
+    T: atrium_xrpc::XrpcClient + Send + Sync + 'static,
 {
     pub fn new(xrpc: T) -> Self {
         Self {
@@ -19,7 +19,7 @@ where
 }
 pub struct Service<T>
 where
-    T: atrium_xrpc::XrpcClient + Send + Sync,
+    T: atrium_xrpc::XrpcClient + Send + Sync + 'static,
 {
     pub(crate) _phantom: core::marker::PhantomData<T>,
 }
