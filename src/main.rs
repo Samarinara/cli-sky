@@ -3,6 +3,7 @@ use std::io::Write;
 use std::process;
 use std::fs;
 use std::io::{self, BufRead};
+use std::str::FromStr;
 
 use atrium_identity::identity_resolver::IdentityResolverConfig;
 use cli_sky::com;
@@ -385,48 +386,46 @@ pub async fn list_user_blog(agent: &BskyAgent) -> Result<(), Box<dyn std::error:
     io::stdin().read_line(&mut name)?;
     let handle = name.trim();
 
-    // Get the author's feed using the agent's API
+    // Get the author's DID
+    let did = agent.api.com.atproto.identity.resolve_handle(
+        atrium_api::com::atproto::identity::resolve_handle::ParametersData {
+            handle: atrium_api::types::string::Handle::from_str(handle)?,
+        }
+        .into(),
+    ).await?.did.clone();
+
+    // Get the blog posts using listRecords
     let response = agent
         .api
-        .app
-        .bsky
-        .feed
-        .get_author_feed(
-            atrium_api::app::bsky::feed::get_author_feed::ParametersData {
-                actor: handle.parse()?,
-                cursor: None,
+        .com
+        .atproto
+        .repo
+        .list_records(
+            atrium_api::com::atproto::repo::list_records::ParametersData {
+                repo: atrium_api::types::string::AtIdentifier::from_str(&did.to_string())?,
+                collection: "com.macroblog.blog.post".parse()?,
                 limit: Some(50.try_into()?),
-                filter: None,
-                include_pins: None,
-            } 
+                cursor: None,
+                reverse: None,
+            }
             .into(),
         )
         .await?;
- 
-    // Print out posts
-    for feed_view in &response.feed {
-        let post = &feed_view.post;
-        let author = &post.author;
-        
-        // Try to parse the record into a known post structure
-        let record_value = serde_json::to_value::<atrium_api::types::Unknown>(post.record.clone())?;
-        
-        // Check if this is a blog post
-        if let Some(record_type) = record_value.get("$type").and_then(|t| t.as_str()) {
-            if record_type != "com.macroblog.blog.post" {
-                continue;
-            }
-        }
 
-        let maybe_post: Result<BlogPost, _> = from_value(record_value);
-
-        match maybe_post {
+    // Print out blog posts
+    for record in &response.records {
+        let record_value = serde_json::to_value::<atrium_api::types::Unknown>(record.value.clone())?;
+        
+        // Debug logging
+        println!("DEBUG: Record type: {:?}", record_value.get("$type"));
+        println!("DEBUG: Full record: {:?}", record_value);
+        
+        // Parse the blog post
+        match serde_json::from_value::<BlogPost>(record_value.clone()) {
             Ok(blog_post) => {
                 println!("\n{}", "=".repeat(50));
                 println!(
-                    "{} (@{})\n\nTitle: {}\n\n{}",
-                    author.display_name.clone().unwrap_or_default(),
-                    author.handle.to_string(),
+                    "Title: {}\n\n{}",
                     blog_post.title,
                     blog_post.text
                 );
@@ -436,18 +435,11 @@ pub async fn list_user_blog(agent: &BskyAgent) -> Result<(), Box<dyn std::error:
                 println!("{}", "=".repeat(50));
             }
             Err(e) => {
-                eprintln!(
-                    "Failed to parse blog post from {} (@{}): {}",
-                    author.display_name.clone().unwrap_or_default(),
-                    author.handle.to_string(),
-                    e
-                );
+                println!("DEBUG: Failed to parse blog post: {}", e);
             }
         }
-    } 
+    }
 
-    let mut dummy = String::new();
-    io::stdin().read_line(&mut dummy)?;
-    menu(agent.clone()).await?;
     Ok(())
 }
+ 
