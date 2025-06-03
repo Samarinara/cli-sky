@@ -4,6 +4,7 @@ use std::process;
 use std::fs;
 use std::io::{self, BufRead};
 
+use atrium_identity::identity_resolver::IdentityResolverConfig;
 use cli_sky::com;
 use keyring::error::Error;
 use bsky_sdk::BskyAgent;
@@ -16,6 +17,13 @@ use serde::{Deserialize, Serialize};
 use cli_sky::lexicon::record::KnownRecord;
 use cli_sky::lexicon::wrapper::AtpServiceClientWrapper;
 use atrium_api::com::atproto::repo::create_record::InputData;
+use atrium_api::app::bsky::feed::get_author_feed::Parameters;
+
+use atrium_xrpc_client::reqwest::ReqwestClientBuilder;
+use atrium_api::app::bsky::feed::get_author_feed;
+use atrium_identity::identity_resolver::IdentityResolver;
+use atrium_api::client::AtpServiceClient;
+use atrium_xrpc_client::reqwest::ReqwestClient;
 
 async fn print_logo() {
     println!("{}[2J", 27 as char);
@@ -183,6 +191,7 @@ fn menu(agent: BskyAgent) -> std::pin::Pin<Box<dyn std::future::Future<Output = 
         println!("1: Text Post");
         println!("2: Following Feed");
         println!("3: Blog Post");
+        println!("4: Find a Blog");
         println!("");
 
         let mut input = String::new();
@@ -208,6 +217,11 @@ fn menu(agent: BskyAgent) -> std::pin::Pin<Box<dyn std::future::Future<Output = 
                 Ok(3) => {
                     println!("blog post");
                     write_blog(agent.clone()).await?;
+                    break;
+                }
+                Ok(4) => {
+                    println!("find a blog");
+                    list_user_blog(&agent).await?;
                     break;
                 }
                 _ => {
@@ -251,11 +265,7 @@ async fn following_feed(agent: BskyAgent)-> Result<(), Box<dyn std::error::Error
 
     // Fetch the first page of timeline (default cursor, default limit)
     let output = agent.clone()
-        .api
-        .app
-        .bsky
-        .feed
-        .get_timeline(
+        .api.app.bsky.feed.get_timeline(
             ParametersData {
                 cursor: None,
                 limit: None,
@@ -367,3 +377,77 @@ async fn write_blog(agent: BskyAgent) -> Result<(), Box<dyn std::error::Error>> 
 } 
 
 
+pub async fn list_user_blog(agent: &BskyAgent) -> Result<(), Box<dyn std::error::Error>> {
+    print!("Enter blogger's handle: ");
+    io::stdout().flush()?;
+
+    let mut name = String::new();
+    io::stdin().read_line(&mut name)?;
+    let handle = name.trim();
+
+    // Get the author's feed using the agent's API
+    let response = agent
+        .api
+        .app
+        .bsky
+        .feed
+        .get_author_feed(
+            atrium_api::app::bsky::feed::get_author_feed::ParametersData {
+                actor: handle.parse()?,
+                cursor: None,
+                limit: Some(50.try_into()?),
+                filter: None,
+                include_pins: None,
+            } 
+            .into(),
+        )
+        .await?;
+ 
+    // Print out posts
+    for feed_view in &response.feed {
+        let post = &feed_view.post;
+        let author = &post.author;
+        
+        // Try to parse the record into a known post structure
+        let record_value = serde_json::to_value::<atrium_api::types::Unknown>(post.record.clone())?;
+        
+        // Check if this is a blog post
+        if let Some(record_type) = record_value.get("$type").and_then(|t| t.as_str()) {
+            if record_type != "com.macroblog.blog.post" {
+                continue;
+            }
+        }
+
+        let maybe_post: Result<BlogPost, _> = from_value(record_value);
+
+        match maybe_post {
+            Ok(blog_post) => {
+                println!("\n{}", "=".repeat(50));
+                println!(
+                    "{} (@{})\n\nTitle: {}\n\n{}",
+                    author.display_name.clone().unwrap_or_default(),
+                    author.handle.to_string(),
+                    blog_post.title,
+                    blog_post.text
+                );
+                if let Some(tags) = blog_post.tags {
+                    println!("\nTags: {}", tags.join(", "));
+                }
+                println!("{}", "=".repeat(50));
+            }
+            Err(e) => {
+                eprintln!(
+                    "Failed to parse blog post from {} (@{}): {}",
+                    author.display_name.clone().unwrap_or_default(),
+                    author.handle.to_string(),
+                    e
+                );
+            }
+        }
+    } 
+
+    let mut dummy = String::new();
+    io::stdin().read_line(&mut dummy)?;
+    menu(agent.clone()).await?;
+    Ok(())
+}

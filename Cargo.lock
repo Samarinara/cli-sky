@@ -290,6 +290,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "atrium-identity"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c9e2d42bb4dbea038f4f5f45e3af2a89d61a9894a75f06aa550b74a60d2be380"
+dependencies = [
+ "atrium-api",
+ "atrium-common",
+ "atrium-xrpc",
+ "serde",
+ "serde_html_form",
+ "serde_json",
+ "thiserror",
+ "trait-variant",
+]
+
+[[package]]
 name = "atrium-xrpc"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -494,7 +510,9 @@ name = "cli-sky"
 version = "0.4.0"
 dependencies = [
  "atrium-api",
+ "atrium-identity",
  "atrium-xrpc",
+ "atrium-xrpc-client",
  "bsky-sdk",
  "chrono",
  "keyring",
