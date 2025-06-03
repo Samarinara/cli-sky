@@ -438,8 +438,13 @@ pub async fn list_user_blog(agent: &BskyAgent) -> Result<(), Box<dyn std::error:
                 println!("DEBUG: Failed to parse blog post: {}", e);
             }
         }
+        let mut dummy = String::new();
+        io::stdin().read_line(&mut dummy)?;
     }
 
+    let mut dummy = String::new();
+    io::stdin().read_line(&mut dummy)?;  
+    menu(agent.clone()).await?;  
     Ok(())
 }
  
