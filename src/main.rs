@@ -5,8 +5,6 @@ use std::fs;
 use std::io::{self, BufRead};
 use std::str::FromStr;
 
-use atrium_identity::identity_resolver::IdentityResolverConfig;
-use cli_sky::com;
 use keyring::error::Error;
 use bsky_sdk::BskyAgent;
 use atrium_api::types::string::Datetime;
@@ -15,16 +13,9 @@ use bsky_sdk::agent::config::{Config, FileStore};
 use atrium_api::app::bsky::feed::post::RecordData as PostRecordData;
 use serde_json::from_value;
 use serde::{Deserialize, Serialize};
-use cli_sky::lexicon::record::KnownRecord;
-use cli_sky::lexicon::wrapper::AtpServiceClientWrapper;
-use atrium_api::com::atproto::repo::create_record::InputData;
-use atrium_api::app::bsky::feed::get_author_feed::Parameters;
 
-use atrium_xrpc_client::reqwest::ReqwestClientBuilder;
-use atrium_api::app::bsky::feed::get_author_feed;
-use atrium_identity::identity_resolver::IdentityResolver;
-use atrium_api::client::AtpServiceClient;
-use atrium_xrpc_client::reqwest::ReqwestClient;
+use atrium_api::com::atproto::repo::create_record::InputData;
+
 
 async fn print_logo() {
     println!("{}[2J", 27 as char);
@@ -345,11 +336,6 @@ async fn write_blog(agent: BskyAgent) -> Result<(), Box<dyn std::error::Error>> 
         Some(tags_input.trim().split(',').map(|s| s.trim().to_string()).collect())
     };
 
-    let blog_record = BlogPost {
-        title: title.clone(),
-        text: content.clone(),
-        tags: tags.clone(),
-    };
 
     let record_json = serde_json::json!({
         "$type": "com.macroblog.blog.post",
