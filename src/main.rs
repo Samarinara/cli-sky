@@ -19,17 +19,18 @@ use atrium_api::com::atproto::repo::create_record::InputData;
 
 async fn print_logo() {
     println!("{}[2J", 27 as char);
-    println!("  /$$$$$$  /$$       /$$$$$$        /$$$$$$  /$$   /$$ /$$     /$$");
-    println!(" /$$__  $$| $$      |_  $$_/       /$$__  $$| $$  /$$/|  $$   /$$/");
-    println!("| $$  |__/| $$        | $$        | $$  |__/| $$ /$$/  |  $$ /$$/ ");
-    println!("| $$      | $$        | $$        |  $$$$$$ | $$$$$/    |  $$$$/  ");
-    println!("| $$      | $$        | $$         |____  $$| $$  $$     |  $$/   ");
-    println!("| $$    $$| $$        | $$         /$$  | $$| $$|  $$     | $$    ");
-    println!("|  $$$$$$/| $$$$$$$$ /$$$$$$      |  $$$$$$/| $$ |  $$    | $$    ");
+    println!("  /██████  /██       /██████        /██████  /██   /██ /██     /██");
+    println!(" /██__  ██| ██      |_  ██_/       /██__  ██| ██  /██/|  ██   /██/");
+    println!("| ██  |__/| ██        | ██        | ██  |__/| ██ /██/  |  ██ /██/ ");
+    println!("| ██      | ██        | ██        |  ██████ | █████/    |  ████/  ");
+    println!("| ██      | ██        | ██         |____  ██| ██  ██     |  ██/   ");
+    println!("| ██    ██| ██        | ██         /██  | ██| ██|  ██     | ██    ");
+    println!("|  ██████/| ████████ /██████      |  ██████/| ██ |  ██    | ██    ");
     println!(" |______/ |________/|______/       |______/ |__/  |__/    |__/   ");
     println!("");
     println!("");
 }
+
 
 #[derive(Serialize, Deserialize)]
 struct BlogPost {
@@ -103,7 +104,6 @@ async fn ask_to_login() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    println!("Got secret: {pwd}");
 
     let mut file = File::create("config.json")?;
     file.write_all(pwd.as_bytes())?;
@@ -183,7 +183,7 @@ fn menu(agent: BskyAgent) -> std::pin::Pin<Box<dyn std::future::Future<Output = 
         println!("1: Text Post");
         println!("2: Following Feed");
         println!("3: Blog Post");
-        println!("4: Find a Blog");
+
         println!("");
 
         let mut input = String::new();
@@ -214,6 +214,11 @@ fn menu(agent: BskyAgent) -> std::pin::Pin<Box<dyn std::future::Future<Output = 
                 Ok(4) => {
                     println!("find a blog");
                     list_user_blog(&agent).await?;
+                    break;
+                }
+                Ok(5) => {
+                    println!("find a blog (experimental)");
+                    list_user_blog_experimental(&agent).await?;
                     break;
                 }
                 _ => {
@@ -365,46 +370,90 @@ async fn write_blog(agent: BskyAgent) -> Result<(), Box<dyn std::error::Error>> 
 
 
 pub async fn list_user_blog(agent: &BskyAgent) -> Result<(), Box<dyn std::error::Error>> {
-    print!("Enter blogger's handle: ");
+    println!("Enter blogger's handle: ");
     io::stdout().flush()?;
 
     let mut name = String::new();
     io::stdin().read_line(&mut name)?;
     let handle = name.trim();
+    println!("Looking up handle: {}", handle);
 
     // Get the author's DID
-    let did = agent.api.com.atproto.identity.resolve_handle(
+    let did = match agent.api.com.atproto.identity.resolve_handle(
         atrium_api::com::atproto::identity::resolve_handle::ParametersData {
             handle: atrium_api::types::string::Handle::from_str(handle)?,
         }
         .into(),
-    ).await?.did.clone();
+    ).await {
+        Ok(response) => {
+            println!("Successfully resolved handle to DID: {:?}", response.did);
+            response.did.clone()
+        },
+        Err(e) => {
+            println!("Error: Could not find user with handle '{}'. Please check the handle and try again.", handle);
+            println!("Error details: {}", e);
+            menu(agent.clone()).await?;
+            return Ok(());
+        }
+    };
+
+    println!("Fetching blog posts for DID: {:?}", did);
 
     // Get the blog posts using listRecords
-    let response = agent
+    let params = atrium_api::com::atproto::repo::list_records::ParametersData {
+        repo: atrium_api::types::string::AtIdentifier::from_str(&format!("at://{}", did.to_string()))?,
+        collection: "com.macroblog.blog.post".parse()?,
+        limit: Some(50.try_into()?),
+        cursor: None,
+        reverse: None,
+    };
+    
+    println!("List records parameters: {:?}", params);
+
+    let response = match agent
         .api
         .com
         .atproto
         .repo
-        .list_records(
-            atrium_api::com::atproto::repo::list_records::ParametersData {
-                repo: atrium_api::types::string::AtIdentifier::from_str(&did.to_string())?,
-                collection: "com.macroblog.blog.post".parse()?,
-                limit: Some(50.try_into()?),
-                cursor: None,
-                reverse: None,
+        .list_records(params.into())
+        .await {
+            Ok(response) => {
+                println!("Successfully fetched records. Number of records: {}", response.records.len());
+                if response.records.is_empty() {
+                    println!("No records found in response");
+                } else {
+                    let record_value = serde_json::to_value::<atrium_api::types::Unknown>(response.records[0].value.clone())?;
+                    println!("First record value: {:?}", record_value);
+                }
+                response
+            },
+            Err(e) => {
+                println!("Error: Could not fetch blog posts. The user may not have any blog posts or they may be private.");
+                println!("Error details: {}", e);
+                println!("Error type: {:?}", e);
+                println!("DID used: {:?}", did);
+                println!("Collection: com.macroblog.blog.post");
+                println!("Full repository identifier: at://{}", did.to_string());
+                println!("Debug info - DID string: {}", did.to_string());
+                println!("Debug info - Collection string: com.macroblog.blog.post");
+                println!("Debug info - Raw error: {:?}", e);
+                return Ok(());
             }
-            .into(),
-        )
-        .await?;
+        };
+
+    if response.records.is_empty() {
+        println!("No blog posts found for user '{}'.", handle);
+        menu(agent.clone()).await?;
+        return Ok(());
+    }
 
     // Print out blog posts
-    for record in &response.records {
+    for (i, record) in response.records.iter().enumerate() {
+        println!("\nProcessing record {} of {}", i + 1, response.records.len());
         let record_value = serde_json::to_value::<atrium_api::types::Unknown>(record.value.clone())?;
         
-        // Debug logging
-        println!("DEBUG: Record type: {:?}", record_value.get("$type"));
-        println!("DEBUG: Full record: {:?}", record_value);
+        // Debug print the record type
+        println!("Record value: {:?}", record_value);
         
         // Parse the blog post
         match serde_json::from_value::<BlogPost>(record_value.clone()) {
@@ -421,16 +470,397 @@ pub async fn list_user_blog(agent: &BskyAgent) -> Result<(), Box<dyn std::error:
                 println!("{}", "=".repeat(50));
             }
             Err(e) => {
-                println!("DEBUG: Failed to parse blog post: {}", e);
+                println!("Error parsing blog post: {}", e);
+                println!("Raw record value: {:?}", record_value);
+                continue;
             }
         }
+        println!("\nPress Enter to continue to next post...");
         let mut dummy = String::new();
         io::stdin().read_line(&mut dummy)?;
     }
 
+    println!("\nPress Enter to return to menu...");
     let mut dummy = String::new();
     io::stdin().read_line(&mut dummy)?;  
     menu(agent.clone()).await?;  
+    Ok(())
+}
+
+pub async fn list_user_blog_experimental(agent: &BskyAgent) -> Result<(), Box<dyn std::error::Error>> {
+    println!("Enter blogger's handle: ");
+    io::stdout().flush()?;
+
+    let mut name = String::new();
+    io::stdin().read_line(&mut name)?;
+    let handle = name.trim();
+    println!("Looking up handle: {}", handle);
+
+    // Get the author's DID
+    let did = match agent.api.com.atproto.identity.resolve_handle(
+        atrium_api::com::atproto::identity::resolve_handle::ParametersData {
+            handle: atrium_api::types::string::Handle::from_str(handle)?,
+        }
+        .into(),
+    ).await {
+        Ok(response) => {
+            println!("Successfully resolved handle to DID: {:?}", response.did);
+            response.did.clone()
+        },
+        Err(e) => {
+            println!("Error: Could not find user with handle '{}'. Please check the handle and try again.", handle);
+            println!("Error details: {}", e);
+            return Ok(());
+        }
+    };
+
+    println!("Fetching posts for DID: {:?}", did);
+
+    // First try to get the user's profile to verify access
+    match agent.api.app.bsky.actor.get_profile(
+        atrium_api::app::bsky::actor::get_profile::ParametersData {
+            actor: atrium_api::types::string::AtIdentifier::from_str(&did.to_string())?,
+        }
+        .into(),
+    ).await {
+        Ok(profile) => {
+            println!("Successfully accessed profile for: {}", profile.display_name.as_ref().unwrap_or(&"Unknown".to_string()));
+        },
+        Err(e) => {
+            println!("Warning: Could not access profile. This might indicate the account is private or suspended.");
+            println!("Profile error details: {}", e);
+            return Ok(());
+        }
+    }
+
+    // Try to get the author's feed using the feed API first
+    println!("\nAttempting to fetch author feed...");
+    let feed_params = atrium_api::app::bsky::feed::get_author_feed::ParametersData {
+        actor: atrium_api::types::string::AtIdentifier::from_str(&did.to_string())?,
+        cursor: None,
+        filter: None, // Try without filter first
+        limit: Some(50.try_into()?),
+        include_pins: None,
+    };
+
+    println!("Feed parameters: {:?}", feed_params);
+
+    match agent
+        .api
+        .app
+        .bsky
+        .feed
+        .get_author_feed(feed_params.into())
+        .await {
+            Ok(feed_response) => {
+                println!("Successfully fetched feed. Number of posts: {}", feed_response.feed.len());
+                println!("Feed response: {:?}", feed_response);
+                
+                if feed_response.feed.is_empty() {
+                    println!("No posts found in feed, trying repository API...");
+                    
+                    // Try repository API as fallback
+                    let params = atrium_api::com::atproto::repo::list_records::ParametersData {
+                        repo: atrium_api::types::string::AtIdentifier::from_str(&format!("at://{}", did.to_string()))?,
+                        collection: "app.bsky.feed.post".parse()?,
+                        limit: Some(100.try_into()?),
+                        cursor: None,
+                        reverse: Some(true), // Try getting most recent posts first
+                    };
+                    
+                    println!("List records parameters: {:?}", params);
+
+                    match agent
+                        .api
+                        .com
+                        .atproto
+                        .repo
+                        .list_records(params.into())
+                        .await {
+                            Ok(response) => {
+                                println!("Successfully fetched records. Number of records: {}", response.records.len());
+                                println!("Records response: {:?}", response);
+                                
+                                if response.records.is_empty() {
+                                    println!("No posts found for user '{}'.", handle);
+                                    return Ok(());
+                                }
+
+                                // Print out records
+                                for (i, record) in response.records.iter().enumerate() {
+                                    println!("\nProcessing record {} of {}", i + 1, response.records.len());
+                                    
+                                    // Convert the record value to a JSON value for easier access
+                                    let record_value = match serde_json::to_value(&record.value) {
+                                        Ok(value) => value,
+                                        Err(e) => {
+                                            println!("Error converting record to JSON: {}", e);
+                                            continue;
+                                        }
+                                    };
+
+                                    // Get the record type
+                                    let record_type = record_value.get("$type").and_then(|t| t.as_str()).unwrap_or("unknown");
+                                    println!("Record type: {}", record_type);
+
+                                    // Try to parse as a post record
+                                    match serde_json::from_value::<PostRecordData>(record_value.clone()) {
+                                        Ok(post) => {
+                                            println!("\n{}", "=".repeat(50));
+                                            println!("Text: {}", post.text);
+                                            
+                                            // Print any embedded content
+                                            if let Some(embed) = post.embed {
+                                                println!("\nEmbedded content:");
+                                                println!("{:?}", embed);
+                                            }
+                                            
+                                            // Print any facets
+                                            if let Some(facets) = post.facets {
+                                                println!("\nFacets:");
+                                                for facet in facets {
+                                                    println!("{:?}", facet);
+                                                }
+                                            }
+                                            
+                                            // Print any tags
+                                            if let Some(tags) = post.tags {
+                                                println!("\nTags: {}", tags.join(", "));
+                                            }
+                                            
+                                            println!("{}", "=".repeat(50));
+                                        },
+                                        Err(e) => {
+                                            println!("Could not parse as post record: {}", e);
+                                            // Fall back to displaying raw text if available
+                                            if let Some(text) = record_value.get("text").and_then(|t| t.as_str()) {
+                                                println!("\n{}", "=".repeat(50));
+                                                println!("Text: {}", text);
+                                                println!("{}", "=".repeat(50));
+                                            }
+                                        }
+                                    }
+                                    
+                                    println!("\nPress Enter to continue to next post...");
+                                    let mut dummy = String::new();
+                                    io::stdin().read_line(&mut dummy)?;
+                                }
+                            },
+                            Err(e) => {
+                                println!("Error: Could not fetch records.");
+                                println!("Error details: {}", e);
+                                println!("Error type: {:?}", e);
+                                println!("DID used: {:?}", did);
+                                println!("Collection: app.bsky.feed.post");
+                                println!("Full repository identifier: at://{}", did.to_string());
+                                println!("Debug info - DID string: {}", did.to_string());
+                                println!("Debug info - Raw error: {:?}", e);
+                                
+                                // Try one more time with a different collection
+                                println!("\nTrying with different collection...");
+                                let params = atrium_api::com::atproto::repo::list_records::ParametersData {
+                                    repo: atrium_api::types::string::AtIdentifier::from_str(&format!("at://{}", did.to_string()))?,
+                                    collection: "com.atproto.repo.strongRef".parse()?,
+                                    limit: Some(100.try_into()?),
+                                    cursor: None,
+                                    reverse: Some(true),
+                                };
+                                
+                                println!("List records parameters (second attempt): {:?}", params);
+                                
+                                match agent
+                                    .api
+                                    .com
+                                    .atproto
+                                    .repo
+                                    .list_records(params.into())
+                                    .await {
+                                        Ok(response) => {
+                                            println!("Successfully fetched records (second attempt). Number of records: {}", response.records.len());
+                                            println!("Records response (second attempt): {:?}", response);
+                                        },
+                                        Err(e) => {
+                                            println!("Error in second attempt: {}", e);
+                                            println!("Error type: {:?}", e);
+                                            
+                                            // Try one last time with the relay service
+                                            println!("\nTrying with relay service...");
+                                            let params = atrium_api::com::atproto::sync::get_repo::ParametersData {
+                                                did: did.clone(),
+                                                since: None,
+                                            };
+                                            
+                                            println!("Get repo parameters: {:?}", params);
+                                            
+                                            match agent
+                                                .api
+                                                .com
+                                                .atproto
+                                                .sync
+                                                .get_repo(params.into())
+                                                .await {
+                                                    Ok(response) => {
+                                                        println!("Successfully fetched repo from relay service");
+                                                        println!("Repo response: {:?}", response);
+                                                    },
+                                                    Err(e) => {
+                                                        println!("Error fetching from relay service: {}", e);
+                                                        println!("Error type: {:?}", e);
+                                                    }
+                                                }
+                                        }
+                                    }
+                                
+                                return Ok(());
+                            }
+                        }
+                } else {
+                    // Print out feed posts
+                    for (i, feed_view) in feed_response.feed.iter().enumerate() {
+                        println!("\nProcessing post {} of {}", i + 1, feed_response.feed.len());
+                        
+                        // Get the record value and print it directly
+                        let record_value = serde_json::to_value::<atrium_api::types::Unknown>(feed_view.post.record.clone())?;
+                        println!("\n{}", "=".repeat(50));
+                        println!("Record type: {:?}", record_value.get("$type"));
+                        
+                        // Try to get the text field directly
+                        if let Some(text) = record_value.get("text").and_then(|t| t.as_str()) {
+                            println!("Text: {}", text);
+                        }
+                        
+                        // Try to get the title field if it exists
+                        if let Some(title) = record_value.get("title").and_then(|t| t.as_str()) {
+                            println!("Title: {}", title);
+                        }
+                        
+                        // Try to get tags if they exist
+                        if let Some(tags) = record_value.get("tags").and_then(|t| t.as_array()) {
+                            let tag_strings: Vec<String> = tags.iter()
+                                .filter_map(|tag| tag.as_str().map(String::from))
+                                .collect();
+                            if !tag_strings.is_empty() {
+                                println!("Tags: {}", tag_strings.join(", "));
+                            }
+                        }
+                        
+                        println!("{}", "=".repeat(50));
+                        println!("\nPress Enter to continue to next post...");
+                        let mut dummy = String::new();
+                        io::stdin().read_line(&mut dummy)?;
+                    }
+                }
+            },
+            Err(e) => {
+                println!("Error fetching feed: {}", e);
+                println!("Error type: {:?}", e);
+                println!("Trying repository API as fallback...");
+                
+                // Fall back to repository API
+                let params = atrium_api::com::atproto::repo::list_records::ParametersData {
+                    repo: atrium_api::types::string::AtIdentifier::from_str(&format!("at://{}", did.to_string()))?,
+                    collection: "app.bsky.feed.post".parse()?,
+                    limit: Some(100.try_into()?),
+                    cursor: None,
+                    reverse: Some(true),
+                };
+                
+                println!("List records parameters: {:?}", params);
+
+                match agent
+                    .api
+                    .com
+                    .atproto
+                    .repo
+                    .list_records(params.into())
+                    .await {
+                        Ok(response) => {
+                            println!("Successfully fetched records. Number of records: {}", response.records.len());
+                            println!("Records response: {:?}", response);
+                            
+                            if response.records.is_empty() {
+                                println!("No posts found for user '{}'.", handle);
+                                return Ok(());
+                            }
+
+                            // Print out records
+                            for (i, record) in response.records.iter().enumerate() {
+                                println!("\nProcessing record {} of {}", i + 1, response.records.len());
+                                
+                                // Convert the record value to a JSON value for easier access
+                                let record_value = match serde_json::to_value(&record.value) {
+                                    Ok(value) => value,
+                                    Err(e) => {
+                                        println!("Error converting record to JSON: {}", e);
+                                        continue;
+                                    }
+                                };
+
+                                // Get the record type
+                                let record_type = record_value.get("$type").and_then(|t| t.as_str()).unwrap_or("unknown");
+                                println!("Record type: {}", record_type);
+
+                                // Try to parse as a post record
+                                match serde_json::from_value::<PostRecordData>(record_value.clone()) {
+                                    Ok(post) => {
+                                        println!("\n{}", "=".repeat(50));
+                                        println!("Text: {}", post.text);
+                                        
+                                        // Print any embedded content
+                                        if let Some(embed) = post.embed {
+                                            println!("\nEmbedded content:");
+                                            println!("{:?}", embed);
+                                        }
+                                        
+                                        // Print any facets
+                                        if let Some(facets) = post.facets {
+                                            println!("\nFacets:");
+                                            for facet in facets {
+                                                println!("{:?}", facet);
+                                            }
+                                        }
+                                        
+                                        // Print any tags
+                                        if let Some(tags) = post.tags {
+                                            println!("\nTags: {}", tags.join(", "));
+                                        }
+                                        
+                                        println!("{}", "=".repeat(50));
+                                    },
+                                    Err(e) => {
+                                        println!("Could not parse as post record: {}", e);
+                                        // Fall back to displaying raw text if available
+                                        if let Some(text) = record_value.get("text").and_then(|t| t.as_str()) {
+                                            println!("\n{}", "=".repeat(50));
+                                            println!("Text: {}", text);
+                                            println!("{}", "=".repeat(50));
+                                        }
+                                    }
+                                }
+                                
+                                println!("\nPress Enter to continue to next post...");
+                                let mut dummy = String::new();
+                                io::stdin().read_line(&mut dummy)?;
+                            }
+                        },
+                        Err(e) => {
+                            println!("Error: Could not fetch records.");
+                            println!("Error details: {}", e);
+                            println!("Error type: {:?}", e);
+                            println!("DID used: {:?}", did);
+                            println!("Collection: app.bsky.feed.post");
+                            println!("Full repository identifier: at://{}", did.to_string());
+                            println!("Debug info - DID string: {}", did.to_string());
+                            println!("Debug info - Raw error: {:?}", e);
+                            return Ok(());
+                        }
+                    }
+            }
+        }
+
+    println!("\nPress Enter to return to menu...");
+    let mut dummy = String::new();
+    io::stdin().read_line(&mut dummy)?;  
     Ok(())
 }
  
